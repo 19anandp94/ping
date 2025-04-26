@@ -1,18 +1,19 @@
-import express, { Request, Response } from 'express';
+import express from 'express';
+import { createTeam, getTeams, getTeam, getUserTeams } from '../controllers/teamController';
+import { authenticate } from '../middleware/auth';
 
 const router = express.Router();
 
-// Get all teams
-router.get('/', (req: Request, res: Response) => {
-  // TODO: Implement teams retrieval logic
-  res.json({ message: 'Teams endpoint' });
-});
+// Get user's teams
+router.get('/user', authenticate, getUserTeams);
+
+// Create a new team
+router.post('/', authenticate, createTeam);
+
+// Get all teams for the authenticated user
+router.get('/', authenticate, getTeams);
 
 // Get a specific team
-router.get('/:teamId', (req: Request, res: Response) => {
-  const { teamId } = req.params;
-  // TODO: Implement specific team retrieval logic
-  res.json({ message: `Team ${teamId} details` });
-});
+router.get('/:teamId', authenticate, getTeam);
 
 export default router; 

@@ -64,7 +64,7 @@ const updateEventTimes = async () => {
       await Event.findByIdAndUpdate(event._id, { timeLeft: newTimeLeft });
     }
     
-    console.log('Event times updated successfully');
+    // console.log('Event times updated successfully');
   } catch (error) {
     console.error('Error updating event times:', error);
   }

@@ -1,4 +1,5 @@
-import express, { Request, Response } from 'express';
+import express from 'express';
+import { Request, Response } from 'express';
 import { Event } from '../models/Event';
 import { Contest } from '../models/Contest';
 import { Short } from '../models/Short';
@@ -19,6 +20,38 @@ router.get('/', async (req: Request, res: Response) => {
   }
 });
 
+// Get detailed event information
+router.get('/:eventId', (async (req: Request, res: Response): Promise<void> => {
+  try {
+    const { eventId } = req.params;
+    const event = await Event.findById(eventId);
+    
+    if (!event) {
+      res.status(404).json({ message: 'Event not found' });
+      return;
+    }
+
+    // Get contests for this event
+    const contests = await Contest.find({ 
+      eventId,
+      status: 'open'
+    }).sort({ createdAt: -1 });
+
+    // Get shorts for this event
+    const shorts = await Short.find({ eventId })
+      .sort({ views: -1 });
+
+    res.json({
+      event,
+      contests,
+      shorts
+    });
+  } catch (error) {
+    console.error('Error fetching event details:', error);
+    res.status(500).json({ message: 'Error fetching event details' });
+  }
+}) as express.RequestHandler);
+
 // Get contests for a specific event
 router.get('/:eventId/contests', async (req: Request, res: Response) => {
   try {
@@ -28,7 +61,7 @@ router.get('/:eventId/contests', async (req: Request, res: Response) => {
       status: 'open'
     })
     .sort({ createdAt: -1 })
-    .limit(3);
+    .limit(4);
     
     res.json(contests);
   } catch (error) {

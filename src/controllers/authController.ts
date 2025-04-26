@@ -2,6 +2,7 @@ import { Request, Response } from 'express';
 import { User } from '../models/User';
 import { validationResult } from 'express-validator';
 import { generateAccessToken, generateRefreshToken, verifyRefreshToken } from '../utils/jwt';
+import jwt from 'jsonwebtoken';
 
 export const signup = async (req: Request, res: Response): Promise<void> => {
   try {
@@ -60,53 +61,48 @@ export const signup = async (req: Request, res: Response): Promise<void> => {
   }
 };
 
-export const login = async (req: Request, res: Response): Promise<void> => {
+export const login = async (req: Request, res: Response) => {
   try {
-    // Check for validation errors
-    const errors = validationResult(req);
-    if (!errors.isEmpty()) {
-      res.status(400).json({ errors: errors.array() });
-      return;
-    }
-
     const { email, password } = req.body;
-    console.log(req.body);
-    // Find user by email
+
     const user = await User.findOne({ email });
     if (!user) {
       res.status(401).json({ message: 'Invalid credentials' });
       return;
     }
 
-    // Check password
-    const isPasswordValid = await user.comparePassword(password);
-    if (!isPasswordValid) {
+    const isMatch = await user.comparePassword(password);
+    if (!isMatch) {
       res.status(401).json({ message: 'Invalid credentials' });
       return;
     }
 
-    // Generate tokens
-    const accessToken = generateAccessToken(user);
-    const refreshToken = generateRefreshToken(user);
-    
-    // Save refresh token
-    await user.addRefreshToken(refreshToken);
+    const token = jwt.sign(
+      { userId: user._id, email: user.email },
+      process.env.JWT_SECRET!,
+      { expiresIn: '7d' }
+    );
 
-    // Return success response with tokens
-    res.status(200).json({
+    // Set cookie
+    res.cookie('token', token, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === 'production' || process.env.NODE_ENV === 'development',
+      maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
+      sameSite: 'lax'
+    });
+
+    res.json({
       message: 'Login successful',
       user: {
         id: user._id,
-        username: user.username,
-        email: user.email
+        email: user.email,
+        username: user.username
       },
-      accessToken,
-      refreshToken
+      token:token
     });
-
   } catch (error) {
     console.error('Login error:', error);
-    res.status(500).json({ message: 'Error during login' });
+    res.status(500).json({ message: 'Server error' });
   }
 };
 
