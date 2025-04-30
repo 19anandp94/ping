@@ -30,17 +30,17 @@ const teamSchema = new mongoose.Schema({
 });
 
 // Drop old index and create new compound index
-const initIndexes = async () => {
-  try {
-    await mongoose.connection.db.collection('teams').dropIndex('userId_1');
-  } catch (error) {
-    // Index might not exist, which is fine
-  }
-  teamSchema.index({ userId: 1, eventId: 1 }, { unique: true });
-};
+// const initIndexes = async () => {
+//   try {
+//     await mongoose.connection.db.collection('teams').dropIndex('userId_1');
+//   } catch (error) {
+//     // Index might not exist, which is fine
+//   }
+//   teamSchema.index({ userId: 1, eventId: 1 }, { unique: true });
+// };
 
-// Call initIndexes when the model is first used
-initIndexes();
+// // Call initIndexes when the model is first used
+// initIndexes();
 
 // Update the updatedAt field before saving
 teamSchema.pre('save', async function(next) {
