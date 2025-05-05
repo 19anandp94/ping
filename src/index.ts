@@ -31,11 +31,11 @@ mongoose.connect(MONGODB_URI)
   .then(() => {
     console.log('Connected to MongoDB');
     // Start the event cron job after successful database connection
-    startEventCron();
+    // startEventCron();
     // Start the contest cron job after successful database connection
-    startContestCron();
+    // startContestCron();
     // Start the YouTube cron job after successful database connection
-    startYoutubeCron();
+    // startYoutubeCron();
   })
   .catch((error) => {
     console.error('MongoDB connection error:', error);

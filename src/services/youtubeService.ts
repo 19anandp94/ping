@@ -3,6 +3,7 @@ import { Event } from '../models/Event';
 import { Short } from '../models/Short';
 import dotenv from 'dotenv';
 import cron from 'node-cron';
+import axios from 'axios';
 
 dotenv.config();
 
@@ -13,7 +14,7 @@ const youtube = google.youtube({
 });
 
 // Emoji and color mapping for different video categories
-const categoryMapping = {
+export const categoryMapping = {
   'Entertainment': { emoji: '🎬', color: '#FF6B6B' },
   'Music': { emoji: '🎵', color: '#4ECDC4' },
   'Gaming': { emoji: '🎮', color: '#45B7D1' },
@@ -26,7 +27,7 @@ const categoryMapping = {
 };
 
 // Function to get category mapping
-const getCategoryMapping = (categoryId: string): { emoji: string, color: string } => {
+export const getCategoryMapping = (categoryId: string): { emoji: string, color: string } => {
   switch (categoryId) {
     case '24': return categoryMapping['Entertainment'];
     case '10': return categoryMapping['Music'];
@@ -138,4 +139,50 @@ export const startYoutubeCron = () => {
   cron.schedule('0 */6 * * *', async () => {
     await updateShorts();
   });
+};
+
+// Function to fetch videos by category and region
+export const fetchVideosByCategory = async (categoryId: string, regionCode: string = 'IN'): Promise<any[]> => {
+  try {
+    const response = await youtube.videos.list({
+      part: ['snippet', 'statistics', 'contentDetails'],
+      chart: 'mostPopular',
+      regionCode,
+      videoCategoryId: categoryId,
+      maxResults: 20
+    });
+
+    return response.data.items || [];
+  } catch (error) {
+    console.error('Error fetching videos by category:', error);
+    return [];
+  }
+};
+
+export const getVideoStats = async (videoUrl: string) => {
+  try {
+    // Extract video ID from URL
+    const videoId = videoUrl.split('v=')[1]?.split('&')[0];
+    if (!videoId) {
+      throw new Error('Invalid video URL');
+    }
+
+    // Make YouTube API call
+    const response = await axios.get(
+      `https://www.googleapis.com/youtube/v3/videos?part=statistics&id=${videoId}&key=${process.env.YOUTUBE_API_KEY}`
+    );
+
+    if (response.data.items && response.data.items.length > 0) {
+      const stats = response.data.items[0].statistics;
+      return {
+        views: parseInt(stats.viewCount) || 0,
+        likes: parseInt(stats.likeCount) || 0,
+        comments: parseInt(stats.commentCount) || 0
+      };
+    }
+    return null;
+  } catch (error) {
+    console.error('Error fetching YouTube video stats:', error);
+    return null;
+  }
 }; 
