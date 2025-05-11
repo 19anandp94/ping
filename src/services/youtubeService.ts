@@ -159,21 +159,30 @@ export const fetchVideosByCategory = async (categoryId: string, regionCode: stri
   }
 };
 
+interface YouTubeResponse {
+  items: Array<{
+    statistics: {
+      viewCount: string;
+      likeCount: string;
+      commentCount: string;
+    };
+  }>;
+}
+
 export const getVideoStats = async (videoUrl: string) => {
   try {
-    // Extract video ID from URL
     const videoId = videoUrl.split('v=')[1]?.split('&')[0];
     if (!videoId) {
       throw new Error('Invalid video URL');
     }
 
-    // Make YouTube API call
     const response = await axios.get(
       `https://www.googleapis.com/youtube/v3/videos?part=statistics&id=${videoId}&key=${process.env.YOUTUBE_API_KEY}`
     );
 
-    if (response.data.items && response.data.items.length > 0) {
-      const stats = response.data.items[0].statistics;
+    const data = response.data as YouTubeResponse;
+    if (data.items && data.items.length > 0) {
+      const stats = data.items[0].statistics;
       return {
         views: parseInt(stats.viewCount) || 0,
         likes: parseInt(stats.likeCount) || 0,

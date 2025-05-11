@@ -8,6 +8,7 @@ import { ContestParticipation } from '../models/ContestParticipation';
 import { Team } from '../models/Team';
 import { authenticate } from '../middleware/auth';
 import { fetchVideosByCategory, getCategoryMapping, categoryMapping, getVideoStats } from '../services/youtubeService';
+import redis from '../services/redis';
 
 const router = express.Router();
 
@@ -370,7 +371,7 @@ router.post('/videos/category/:categoryId', async (req: Request, res: Response) 
 });
 
 // Update event statistics
-router.post('/update/eventstats', async (req: Request, res: Response) => {
+router.post('/update/eventstats', (async (req: Request, res: Response): Promise<Response | void> => {
   try {
     const { eventId } = req.query;
 
@@ -415,6 +416,12 @@ router.post('/update/eventstats', async (req: Request, res: Response) => {
             views: stats.views,
             likes: stats.likes,
             comments: stats.comments,
+            updatedView: stats.views,
+            updatedLike: stats.likes,
+            updatedComment: stats.comments,
+            shortScore: 0,
+            counter: 1,
+            status: 'active',
             updatedAt: new Date()
           },
           { upsert: true, new: true }
@@ -426,7 +433,13 @@ router.post('/update/eventstats', async (req: Request, res: Response) => {
           stats: {
             views: stats.views,
             likes: stats.likes,
-            comments: stats.comments
+            comments: stats.comments,
+            updatedView: stats.views,
+            updatedLike: stats.likes,
+            updatedComment: stats.comments,
+            shortScore: 0,
+            counter: 1,
+            status: 'active'
           }
         };
       } catch (error) {
@@ -434,7 +447,7 @@ router.post('/update/eventstats', async (req: Request, res: Response) => {
         return {
           shortId: short._id,
           success: false,
-          error: error.message
+          error: error instanceof Error ? error.message : 'Unknown error occurred'
         };
       }
     }));
@@ -447,6 +460,133 @@ router.post('/update/eventstats', async (req: Request, res: Response) => {
     console.error('Error updating event stats:', error);
     res.status(500).json({ message: 'Error updating event stats' });
   }
-});
+}) as express.RequestHandler);
+
+// Update latest active event stats
+router.post('/update/latest-stats', (async (req: Request, res: Response): Promise<Response | void> => {
+  try {
+    // Get latest 20 active entries
+    const activeStats = await EventStats.find({ status: 'active' })
+      .sort({ updatedAt: -1 })
+      .limit(20);
+
+    if (!activeStats || activeStats.length === 0) {
+      return res.status(404).json({ message: 'No active stats found' });
+    }
+
+    const results = await Promise.all(activeStats.map(async (stat) => {
+      try {
+        // Get latest YouTube stats
+        const latestStats = await getVideoStats(stat.videoUrl);
+        
+        if (!latestStats) {
+          return {
+            shortId: stat.shortId,
+            success: false,
+            error: 'Failed to fetch YouTube stats'
+          };
+        }
+
+        // Calculate score based on view difference
+        const viewDiff = latestStats.views - stat.views;
+        const newScore = viewDiff > 0 ? viewDiff : 0;
+
+        // Update stats if counter is less than or equal to 30
+        if (stat.counter <= 30) {
+          const updateData: any = {
+            updatedView: latestStats.views,
+            updatedLike: latestStats.likes,
+            updatedComment: latestStats.comments,
+            shortScore: newScore,
+            counter: stat.counter + 1,
+            updatedAt: new Date()
+          };
+
+          // Set status to inactive if counter reaches 30
+          if (stat.counter + 1 > 30) {
+            updateData.status = 'inactive';
+          }
+
+          await EventStats.findByIdAndUpdate(stat._id, updateData);
+
+          return {
+            shortId: stat.shortId,
+            success: true,
+            stats: {
+              views: stat.views,
+              updatedView: latestStats.views,
+              updatedLike: latestStats.likes,
+              updatedComment: latestStats.comments,
+              shortScore: newScore,
+              counter: stat.counter + 1,
+              status: updateData.status || 'active'
+            }
+          };
+        }
+
+        return {
+          shortId: stat.shortId,
+          success: false,
+          error: 'Counter exceeded 30 - contest completed'
+        };
+      } catch (error) {
+        console.error(`Error processing stats for short ${stat.shortId}:`, error);
+        return {
+          shortId: stat.shortId,
+          success: false,
+          error: error instanceof Error ? error.message : 'Unknown error occurred'
+        };
+      }
+    }));
+
+    res.json({
+      message: 'Latest stats updated successfully',
+      results
+    });
+  } catch (error) {
+    console.error('Error updating latest stats:', error);
+    res.status(500).json({ message: 'Error updating latest stats' });
+  }
+}) as express.RequestHandler);
+
+// Get contest leaderboard
+router.get('/contests/:contestId/leaderboard', (async (req: Request, res: Response): Promise<Response | void> => {
+  try {
+    const { contestId } = req.params;
+    
+    // Get contest details to get eventId
+    const contest = await Contest.findById(contestId);
+    if (!contest) {
+      return res.status(404).json({ message: 'Contest not found' });
+    }
+
+    // Get leaderboard from Redis
+    const leaderboardKey = `leaderboard:${contest.eventId}`;
+    const entries = await redis.zrevrange(leaderboardKey, 0, -1, 'WITHSCORES');
+
+    if (!entries || entries.length === 0) {
+      return res.status(404).json({ message: 'No leaderboard data found' });
+    }
+
+    // Format leaderboard data
+    const leaderboard = [];
+    for (let i = 0; i < entries.length; i += 2) {
+      const entry = JSON.parse(entries[i]);
+      leaderboard.push({
+        ...entry,
+        score: parseInt(entries[i + 1])
+      });
+    }
+
+    res.json({
+      contestId,
+      eventId: contest.eventId,
+      leaderboard
+    });
+  } catch (error) {
+    console.error('Error fetching leaderboard:', error);
+    res.status(500).json({ message: 'Error fetching leaderboard' });
+  }
+}) as express.RequestHandler);
 
 export default router; 

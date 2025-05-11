@@ -26,6 +26,10 @@ const teamSchema = new mongoose.Schema({
   updatedAt: {
     type: Date,
     default: Date.now
+  },
+  score: {
+    type: Number,
+    default: 0
   }
 });
 

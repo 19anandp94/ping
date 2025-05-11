@@ -27,6 +27,31 @@ const eventStatsSchema = new mongoose.Schema({
     type: Number,
     default: 0
   },
+  updatedView: {
+    type: Number,
+    default: 0
+  },
+  updatedLike: {
+    type: Number,
+    default: 0
+  },
+  updatedComment: {
+    type: Number,
+    default: 0
+  },
+  shortScore: {
+    type: Number,
+    default: 0
+  },
+  counter: {
+    type: Number,
+    default: 1
+  },
+  status: {
+    type: String,
+    enum: ['active', 'inactive'],
+    default: 'active'
+  },
   updatedAt: {
     type: Date,
     default: Date.now

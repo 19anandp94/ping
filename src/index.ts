@@ -6,9 +6,11 @@ import userRoutes from './routes/userRoutes';
 import eventRoutes from './routes/eventRoutes';
 import teamRoutes from './routes/teamRoutes';
 import referralRoutes from './routes/referralRoutes';
-import { startEventCron } from './services/eventService';
 import { startContestCron } from './services/contestService';
 import { startYoutubeCron } from './services/youtubeService';
+import { startEventCron } from './services/eventCronService';
+import { startLatestStatsCron } from './services/latestStatsCronService';
+import { startTeamScoreCron } from './services/teamScoreCronService';
 
 dotenv.config();
 
@@ -36,6 +38,9 @@ mongoose.connect(MONGODB_URI)
     // startContestCron();
     // Start the YouTube cron job after successful database connection
     // startYoutubeCron();
+    startEventCron();
+    startLatestStatsCron();
+    startTeamScoreCron();
   })
   .catch((error) => {
     console.error('MongoDB connection error:', error);
