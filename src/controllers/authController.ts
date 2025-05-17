@@ -13,16 +13,16 @@ export const signup = async (req: Request, res: Response): Promise<void> => {
       return;
     }
 
-    const { username, email, password } = req.body;
+    const { username, email, password, mobile } = req.body;
 
     // Check if user already exists
     const existingUser = await User.findOne({ 
-      $or: [{ email }, { username }] 
+      $or: [{ email }, { username }, { mobile }] 
     });
 
     if (existingUser) {
       res.status(400).json({ 
-        message: 'User with this email or username already exists' 
+        message: 'User with this email, username or mobile number already exists' 
       });
       return;
     }
@@ -31,6 +31,7 @@ export const signup = async (req: Request, res: Response): Promise<void> => {
     const user = new User({
       username,
       email,
+      mobile,
       password
     });
 
@@ -49,7 +50,8 @@ export const signup = async (req: Request, res: Response): Promise<void> => {
       user: {
         id: user._id,
         username: user.username,
-        email: user.email
+        email: user.email,
+        mobile: user.mobile
       },
       accessToken,
       refreshToken

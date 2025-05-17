@@ -4,6 +4,7 @@ import bcrypt from 'bcryptjs';
 export interface IUser extends Document {
   username: string;
   email: string;
+  mobile: string;
   password: string;
   refreshTokens: string[];
   comparePassword(candidatePassword: string): Promise<boolean>;
@@ -25,6 +26,12 @@ const userSchema = new Schema({
     unique: true,
     trim: true,
     lowercase: true
+  },
+  mobile: {
+    type: String,
+    required: true,
+    unique: true,
+    trim: true
   },
   password: {
     type: String,
